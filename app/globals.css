@@ -1,26 +1,143 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Technical Brutalism / Swiss Style Theme */
+  --background: #111111;
+  --foreground: #eeeeee;
+  
+  /* Accent: Terminal Green or Safety Orange */
+  --accent: #00ff41; 
+  --accent-dim: #008f11;
+  
+  /* Structural */
+  --border: #333333;
+  --border-active: #eeeeee;
+  
+  /* Grid pattern */
+  --grid-color: rgba(255, 255, 255, 0.05);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-mono), monospace; /* EVERYTHING MONOSPACE */
+  overflow-x: hidden;
+  text-transform: uppercase; /* Optional, adds to the brutalist feel */
+  letter-spacing: 0.05em;
+}
+
+/* Base element resets */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Background Grid Pattern */
+.bg-grid {
+  background-image: 
+    linear-gradient(var(--grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center top;
+}
+
+/* Typography Utilities */
+.text-accent {
+  color: var(--accent);
+}
+
+.text-dim {
+  color: #666666;
+}
+
+/* Component Utilities */
+.border-hard {
+  border: 1px solid var(--border);
+}
+
+.border-hard-active {
+  border: 1px solid var(--accent);
+}
+
+/* Button Styles - Rectangular, Hard Edges */
+.btn-solid {
+  background: var(--foreground);
+  color: var(--background);
+  border: 1px solid var(--foreground);
+  padding: 1rem 2rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.1s steps(2);
+}
+
+.btn-solid:hover {
+  background: var(--accent);
+  color: var(--background);
+  border-color: var(--accent);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  padding: 1rem 2rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.1s steps(2);
+}
+
+.btn-outline:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(0, 255, 65, 0.05); /* Very subtle tint */
+}
+
+/* Code Window Aesthetic */
+.terminal-window {
+  background: #000000;
+  border: 1px solid var(--border);
+}
+
+.terminal-header {
+  border-bottom: 1px solid var(--border);
+  background: #1a1a1a;
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* Syntax highlighting override for stark contrast */
+.syntax-keyword { color: #ff5f00; } /* Orange */
+.syntax-function { color: #00ff41; } /* Green */
+.syntax-string { color: #ffff00; } /* Yellow */
+.syntax-comment { color: #555555; }
+.syntax-variable { color: #00ffff; } /* Cyan */
+
+.section-divider {
+  border-bottom: 1px solid var(--border);
+}
+
+.vertical-divider {
+  border-right: 1px solid var(--border);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent);
+  color: black;
 }
