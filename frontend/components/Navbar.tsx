@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import AuthCTAButton from '@/components/AuthCTAButton';
 
 export default function Navbar() {
   return (
@@ -26,12 +27,12 @@ export default function Navbar() {
 
         {/* CTA Buttons */}
         <div className="flex items-center gap-4">
-          <Link href="/login" className="hidden sm:block text-sm hover:text-[var(--accent)]">
+          <AuthCTAButton className="hidden sm:block text-sm hover:text-[var(--accent)]">
             LOGIN
-          </Link>
-          <button className="btn-solid text-sm py-2 px-4 border border-white">
+          </AuthCTAButton>
+          <AuthCTAButton className="btn-solid text-sm py-2 px-4 border border-white">
             GET_STARTED
-          </button>
+          </AuthCTAButton>
         </div>
       </div>
     </nav>

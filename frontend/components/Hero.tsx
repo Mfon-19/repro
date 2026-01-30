@@ -1,3 +1,5 @@
+import AuthCTAButton from '@/components/AuthCTAButton';
+
 export default function Hero() {
   return (
     <section className="min-h-screen pt-32 pb-20 px-4 flex flex-col items-center justify-center relative border-b border-[var(--border)]">
@@ -31,12 +33,12 @@ export default function Hero() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <button className="btn-solid">
+              <AuthCTAButton className="btn-solid">
                 START_IMPLEMENTING_
-              </button>
-              <button className="btn-outline">
+              </AuthCTAButton>
+              <AuthCTAButton className="btn-outline">
                 BROWSE_PAPERS()
-              </button>
+              </AuthCTAButton>
             </div>
           </div>
 

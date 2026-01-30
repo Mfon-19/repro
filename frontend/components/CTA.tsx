@@ -1,3 +1,5 @@
+import AuthCTAButton from '@/components/AuthCTAButton';
+
 export default function CTA() {
   return (
     <section className="py-32 px-4 border-b border-[var(--border)] bg-[var(--foreground)] text-[var(--background)]">
@@ -15,9 +17,9 @@ export default function CTA() {
             placeholder="ENTER_EMAIL_ADDRESS" 
             className="flex-1 bg-transparent border-2 border-[var(--background)] p-4 placeholder-[var(--background)]/50 focus:outline-none focus:bg-[var(--background)]/5 font-bold"
           />
-          <button className="bg-[var(--background)] text-[var(--foreground)] px-8 py-4 font-bold border-2 border-[var(--background)] hover:bg-transparent hover:text-[var(--background)] transition-colors">
+          <AuthCTAButton className="bg-[var(--background)] text-[var(--foreground)] px-8 py-4 font-bold border-2 border-[var(--background)] hover:bg-transparent hover:text-[var(--background)] transition-colors">
             EXECUTE
-          </button>
+          </AuthCTAButton>
         </div>
       </div>
     </section>
