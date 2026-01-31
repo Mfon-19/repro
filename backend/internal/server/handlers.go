@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
 const maxUploadSize = 50 << 20 // 50MB
@@ -102,6 +106,14 @@ func (s *Server) handlePapersUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	pdfTitle, pdfErr := extractPDFTitle(file, header.Filename)
+	if pdfErr != nil {
+		s.logger.Warn("pdf title extraction failed",
+			slog.Any("error", pdfErr),
+			slog.String("filename", header.Filename),
+		)
+	}
+
 	bytesRead, err := io.Copy(io.Discard, file)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, errorResponse{
@@ -111,8 +123,18 @@ func (s *Server) handlePapersUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Persist extracted metadata and associate it with the paper record.
 	// TODO: Upload the paper file to object storage (e.g., S3) and persist metadata in the database.
 	// TODO: Trigger async pipeline to extract metadata and generate challenge specs.
+
+	extractedTitle, titleSource := inferPaperTitle(r.FormValue("title"), pdfTitle, header.Filename)
+	if extractedTitle != "" {
+		s.logger.Info("paper title extracted",
+			slog.String("paper_title", extractedTitle),
+			slog.String("source", titleSource),
+			slog.String("filename", header.Filename),
+		)
+	}
 
 	paperID, err := generateID("paper")
 	if err != nil {
@@ -127,7 +149,7 @@ func (s *Server) handlePapersUpload(w http.ResponseWriter, r *http.Request) {
 		ID:        paperID,
 		Status:    statusProcessing,
 		Filename:  header.Filename,
-		Title:     strings.TrimSpace(r.FormValue("title")),
+		Title:     extractedTitle,
 		Uploaded:  time.Now().UTC().Format(time.RFC3339),
 		Message:   "paper accepted for processing",
 		BytesRead: bytesRead,
@@ -347,4 +369,52 @@ func generateID(prefix string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%s_%x", prefix, buf), nil
+}
+
+func inferPaperTitle(formTitle, pdfTitle, filename string) (string, string) {
+	title := strings.TrimSpace(formTitle)
+	if title != "" {
+		return title, "form"
+	}
+	title = strings.TrimSpace(pdfTitle)
+	if title != "" {
+		return title, "pdf"
+	}
+	base := strings.TrimSpace(filepath.Base(filename))
+	base = strings.TrimSuffix(base, filepath.Ext(base))
+	base = strings.NewReplacer("_", " ", "-", " ").Replace(base)
+	base = strings.TrimSpace(base)
+	if base != "" {
+		return strings.ToUpper(base), "filename"
+	}
+	return "", "unknown"
+}
+
+var pdfcpuOnce sync.Once
+
+func extractPDFTitle(rs io.ReadSeeker, filename string) (string, error) {
+	if rs == nil {
+		return "", errors.New("missing pdf reader")
+	}
+
+	pdfcpuOnce.Do(api.DisableConfigDir)
+
+	if _, err := rs.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+
+	conf := model.NewDefaultConfiguration()
+	conf.ValidationMode = model.ValidationRelaxed
+
+	info, err := api.PDFInfo(rs, filename, nil, false, conf)
+	if _, seekErr := rs.Seek(0, io.SeekStart); seekErr != nil && err == nil {
+		err = seekErr
+	}
+	if err != nil {
+		return "", err
+	}
+	if info == nil {
+		return "", nil
+	}
+	return strings.TrimSpace(info.Title), nil
 }

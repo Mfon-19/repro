@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { JetBrains_Mono } from "next/font/google"; // Switch to JetBrains Mono
+import "@react-pdf-viewer/core/lib/styles/index.css";
 import "./globals.css";
 
 // Only loading JetBrains Mono, as per aesthetic requirements
