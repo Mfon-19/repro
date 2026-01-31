@@ -36,6 +36,13 @@ body {
   letter-spacing: 0.05em;
 }
 
+/* Keep Monaco editor text in original case */
+.monaco-editor,
+.monaco-editor * {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 /* Base element resets */
 a {
   color: inherit;

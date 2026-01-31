@@ -1,3 +1,4 @@
+import CodeEditor from '@/components/CodeEditor';
 import PdfViewer from '@/components/PdfViewer';
 
 type ReproducePageProps = {
@@ -73,27 +74,35 @@ export default function ReproducePage({ params }: ReproducePageProps) {
               ))}
             </div>
 
-            <div className="border border-[var(--border)] bg-black/70">
-              <div className="border-b border-[var(--border)] px-4 py-2 text-xs text-[#666]">
-                src/raft.go
-              </div>
-              <pre className="p-4 text-xs leading-6 overflow-x-auto">
-{`package raft
+            <CodeEditor
+              value={`type LogEntry = {
+  term: number;
+  index: number;
+  data: Uint8Array;
+};
 
-type LogEntry struct {
-  Term  int
-  Index int
-  Data  []byte
-}
+type AppendRequest = {
+  term: number;
+  leaderId: string;
+  entries: LogEntry[];
+  leaderCommit: number;
+};
+
+type AppendResponse = {
+  success: boolean;
+  term: number;
+};
 
 // AppendEntries handles leader replication requests.
-func (r *Raft) AppendEntries(req AppendRequest) AppendResponse {
+export function appendEntries(req: AppendRequest): AppendResponse {
   // TODO: validate term and log consistency
   // TODO: append new entries and update commit index
-  return AppendResponse{Success: false}
+  return { success: false, term: req.term };
 }`}
-              </pre>
-            </div>
+              language="typescript"
+              path="src/raft.ts"
+              height={520}
+            />
 
             <div className="mt-5 border border-[var(--border)] bg-black/60 p-4">
               <div className="text-xs text-[var(--accent)] mb-2">CONSOLE</div>
