@@ -1,27 +1,10 @@
-import dynamic from 'next/dynamic';
-
-const PdfViewer = dynamic(() => import('@/components/PdfViewer'), { ssr: false });
+import PdfViewer from '@/components/PdfViewer';
 
 type ReproducePageProps = {
   params: {
     paperId: string;
   };
 };
-
-const paperSections = [
-  {
-    title: 'ABSTRACT',
-    body: 'WE FORMALIZE THE INVARIANTS AND FAILURE MODES, THEN REPRODUCE THE CORE ALGORITHM UNDER CONTROLLED FAULT INJECTION.',
-  },
-  {
-    title: 'GOALS',
-    body: 'IMPLEMENT LOG REPLICATION. PROVE SAFETY IN THE PRESENCE OF PARTITIONS. VERIFY PERFORMANCE UNDER LOAD.',
-  },
-  {
-    title: 'KEY_INVARIANTS',
-    body: 'ELECTION SAFETY, LOG MATCHING, LEADER COMPLETENESS, STATE MACHINE SAFETY.',
-  },
-];
 
 const tasks = [
   'IMPLEMENT APPEND_ENTRIES RPC',
@@ -58,15 +41,6 @@ export default function ReproducePage({ params }: ReproducePageProps) {
             </div>
             <div className="mb-6">
               <PdfViewer fileUrl="/sample-paper.pdf" height={520} />
-            </div>
-
-            <div className="space-y-5">
-              {paperSections.map((section) => (
-                <div key={section.title} className="border border-[var(--border)] p-4">
-                  <div className="text-xs text-[var(--accent)] mb-2">{section.title}</div>
-                  <p className="text-sm text-[#777] leading-relaxed">{section.body}</p>
-                </div>
-              ))}
             </div>
 
             <div className="mt-6 border border-[var(--border)] p-4">
