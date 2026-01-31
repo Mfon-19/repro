@@ -1,4 +1,4 @@
-import CodeEditor from '@/components/CodeEditor';
+import IdePanel from '@/components/IdePanel';
 import PdfViewer from '@/components/PdfViewer';
 
 type ReproducePageProps = {
@@ -13,7 +13,57 @@ const tasks = [
   'SIMULATE NETWORK PARTITIONS',
 ];
 
-const files = ['README.md', 'src/raft.go', 'tests/raft_spec_test.go'];
+const files = [
+  {
+    path: 'README.md',
+    language: 'markdown',
+    value: `# RAFT REPRODUCTION
+
+Implement log replication using the shared scaffold.
+`,
+  },
+  {
+    path: 'src/raft.ts',
+    language: 'typescript',
+    value: `type LogEntry = {
+  term: number;
+  index: number;
+  data: Uint8Array;
+};
+
+type AppendRequest = {
+  term: number;
+  leaderId: string;
+  entries: LogEntry[];
+  leaderCommit: number;
+};
+
+type AppendResponse = {
+  success: boolean;
+  term: number;
+};
+
+// AppendEntries handles leader replication requests.
+export function appendEntries(req: AppendRequest): AppendResponse {
+  // TODO: validate term and log consistency
+  // TODO: append new entries and update commit index
+  return { success: false, term: req.term };
+}`,
+  },
+  {
+    path: 'tests/raft_spec.test.ts',
+    language: 'typescript',
+    value: `import { appendEntries } from '../src/raft';
+
+describe('appendEntries', () => {
+  it('rejects empty entries for now', () => {
+    const result = appendEntries({ term: 1, leaderId: 'n1', entries: [], leaderCommit: 0 });
+    expect(result.success).toBe(false);
+  });
+});
+`,
+  },
+];
 
 export default function ReproducePage({ params }: ReproducePageProps) {
   return (
@@ -66,43 +116,7 @@ export default function ReproducePage({ params }: ReproducePageProps) {
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-4 text-xs">
-              {files.map((file) => (
-                <div key={file} className="border border-[var(--border)] px-3 py-1 bg-black/50">
-                  {file}
-                </div>
-              ))}
-            </div>
-
-            <CodeEditor
-              value={`type LogEntry = {
-  term: number;
-  index: number;
-  data: Uint8Array;
-};
-
-type AppendRequest = {
-  term: number;
-  leaderId: string;
-  entries: LogEntry[];
-  leaderCommit: number;
-};
-
-type AppendResponse = {
-  success: boolean;
-  term: number;
-};
-
-// AppendEntries handles leader replication requests.
-export function appendEntries(req: AppendRequest): AppendResponse {
-  // TODO: validate term and log consistency
-  // TODO: append new entries and update commit index
-  return { success: false, term: req.term };
-}`}
-              language="typescript"
-              path="src/raft.ts"
-              height={520}
-            />
+            <IdePanel files={files} height={520} />
 
             <div className="mt-5 border border-[var(--border)] bg-black/60 p-4">
               <div className="text-xs text-[var(--accent)] mb-2">CONSOLE</div>
