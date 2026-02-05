@@ -7,6 +7,7 @@ type UploadResult = {
   id?: string;
   status?: string;
   message?: string;
+  stage?: string;
   error?: string;
 };
 
@@ -59,7 +60,7 @@ export default function UploadPaperModal() {
           formData.append('title', titleInput.value);
         }
 
-        const response = await fetch(`${apiBase}/api/v1/papers`, {
+        const response = await fetch(`${apiBase}/api/jobs`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
@@ -72,25 +73,39 @@ export default function UploadPaperModal() {
           return;
         }
 
-        const paperID = data?.id;
+        const jobId = data?.id;
         form.reset();
-        if (paperID) {
-          closeModal();
-          router.push(`/reproduce/${paperID}`);
+        if (!jobId) {
+          setError('UPLOAD FAILED.');
           return;
         }
-        setResult({
-          id: paperID,
-          status: data?.status,
-          message: data?.message || 'UPLOAD ACCEPTED.',
+
+        const finalizeResponse = await fetch(`${apiBase}/api/jobs/${jobId}/finalize`, {
+          method: 'POST',
+          credentials: 'include',
         });
-      } catch (err) {
+        const finalizeData = await finalizeResponse.json().catch(() => ({}));
+
+        if (!finalizeResponse.ok) {
+          setError(finalizeData?.message || 'FAILED TO QUEUE JOB.');
+          setResult({
+            id: jobId,
+            status: data?.status,
+            stage: data?.stage,
+            message: data?.message || 'UPLOAD ACCEPTED.',
+          });
+          return;
+        }
+
+        closeModal();
+        router.push(`/reproduce/${jobId}`);
+      } catch {
         setError('NETWORK ERROR. TRY AGAIN.');
       } finally {
         setBusy(false);
       }
     },
-    [apiBase, busy]
+    [apiBase, busy, closeModal, router]
   );
 
   return (
@@ -137,6 +152,7 @@ export default function UploadPaperModal() {
               {result && (
                 <div className="text-xs text-[#666] border border-[var(--border)] p-3">
                   <div>STATUS: {result.status || 'QUEUED'}</div>
+                  {result.stage && <div>STAGE: {result.stage}</div>}
                   <div>ID: {result.id || 'PENDING'}</div>
                   <div>{result.message}</div>
                 </div>
