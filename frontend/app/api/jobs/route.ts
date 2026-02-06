@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
       progress_pct: job.progress_pct,
       paper: {
         filename: job.paper_filename,
-        blob_url: job.paper_blob_url,
         title: job.paper_title,
         bytes: blob.size,
       },

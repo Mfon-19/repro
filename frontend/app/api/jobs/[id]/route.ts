@@ -31,7 +31,7 @@ export async function GET(
     paper: {
       title: job.paper_title,
       filename: job.paper_filename,
-      blob_url: job.paper_blob_url,
+      paper_url: `/api/jobs/${job.id}/paper`,
     },
     result,
     result_blob_url: job.result_blob_url,

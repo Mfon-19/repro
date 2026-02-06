@@ -40,7 +40,7 @@ type JobStatus = {
   status: string;
   stage: string;
   progress_pct: number;
-  paper?: { title?: string | null; blob_url?: string | null };
+  paper?: { title?: string | null; paper_url?: string };
   result?: JobResult | null;
   error?: string | null;
 };
@@ -83,7 +83,6 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
         if (data?.result?.files?.length) {
           setFiles(data.result.files);
         }
-
         if (data.status === 'completed' || data.status === 'failed') {
           return;
         }
@@ -109,7 +108,9 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   const title = job?.paper?.title || job?.result?.title || `PAPER ${paperId}`;
   const statusLabel = job ? `${job.status.toUpperCase()} · ${job.stage.toUpperCase()}` : 'LOADING';
   const progressLabel = job ? `${job.progress_pct}%` : '--';
-  const pdfUrl = job?.paper?.blob_url || '';
+  const pdfUrl = job?.paper?.paper_url
+    ? `${apiBase}${job.paper.paper_url}`
+    : '';
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">

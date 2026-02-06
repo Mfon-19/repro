@@ -6,13 +6,14 @@ import { getSession } from '../../../_lib/session';
 export const runtime = 'nodejs';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = getSession(_request);
+  const session = getSession(request);
   if (!session?.userId) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
+
   const { id } = await params;
   const job = await fetchJob(id);
   if (!job) {
@@ -23,27 +24,18 @@ export async function GET(
     return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
   }
 
-  if (job.status !== 'completed') {
-    return NextResponse.json(
-      { error: 'not_ready', message: 'job result not ready', status: job.status },
-      { status: 409 }
-    );
+  if (!job.paper_blob_url) {
+    return NextResponse.json({ error: 'missing_blob', message: 'paper blob not found' }, { status: 404 });
   }
 
-  if (job.result_json) {
-    if (typeof job.result_json === 'string') {
-      try {
-        return NextResponse.json(JSON.parse(job.result_json));
-      } catch {
-        return NextResponse.json(job.result_json);
-      }
-    }
-    return NextResponse.json(job.result_json);
+  const blobResponse = await fetch(job.paper_blob_url);
+  if (!blobResponse.ok || !blobResponse.body) {
+    return NextResponse.json({ error: 'blob_unavailable', message: 'paper not available' }, { status: 502 });
   }
 
-  if (job.result_blob_url) {
-    return NextResponse.redirect(job.result_blob_url);
-  }
+  const headers = new Headers(blobResponse.headers);
+  headers.set('Content-Type', headers.get('Content-Type') || 'application/pdf');
+  headers.set('Cache-Control', 'private, max-age=60');
 
-  return NextResponse.json({ error: 'missing_result', message: 'job result missing' }, { status: 404 });
+  return new NextResponse(blobResponse.body, { status: 200, headers });
 }
