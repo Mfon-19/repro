@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import IdePanel from '@/components/IdePanel';
-import PdfViewer from '@/components/PdfViewer';
+import PdfViewerClient from '@/components/PdfViewerClient';
 
 const defaultTasks = [
   'IMPLEMENT APPEND_ENTRIES RPC',
@@ -140,7 +140,7 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
               <span className="text-xs text-[#666]">READ_ONLY</span>
             </div>
             <div className="mb-6">
-              <PdfViewer fileUrl={pdfUrl} height={520} />
+              <PdfViewerClient fileUrl={pdfUrl} height={520} />
             </div>
 
             <div className="mt-6 border border-[var(--border)] p-4">
