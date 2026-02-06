@@ -1,11 +1,17 @@
+import { notFound } from 'next/navigation';
+
 import ReproduceClient from '@/components/ReproduceClient';
 
 type ReproducePageProps = {
-  params: {
-    paperId: string;
-  };
+  params: Promise<{
+    paperId?: string;
+  }>;
 };
 
-export default function ReproducePage({ params }: ReproducePageProps) {
-  return <ReproduceClient paperId={params.paperId} />;
+export default async function ReproducePage({ params }: ReproducePageProps) {
+  const { paperId } = await params;
+  if (!paperId) {
+    notFound();
+  }
+  return <ReproduceClient paperId={paperId} />;
 }

@@ -61,6 +61,9 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   }, []);
 
   useEffect(() => {
+    if (!paperId) {
+      return;
+    }
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
