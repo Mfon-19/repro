@@ -7,8 +7,12 @@ import { processJob } from '../../../_lib/worker';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  const job = await markJobQueued(params.id);
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const job = await markJobQueued(id);
   if (!job) {
     return NextResponse.json({ error: 'not_found', message: 'job not found or not queueable' }, { status: 404 });
   }

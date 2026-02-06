@@ -4,8 +4,12 @@ import { fetchJob } from '../../_lib/jobs';
 
 export const runtime = 'nodejs';
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
-  const job = await fetchJob(params.id);
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const job = await fetchJob(id);
   if (!job) {
     return NextResponse.json({ error: 'not_found', message: 'job not found' }, { status: 404 });
   }
