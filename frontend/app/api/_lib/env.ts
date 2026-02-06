@@ -2,6 +2,7 @@ export const env = {
   postgresUrl: process.env.POSTGRES_URL,
   blobToken: process.env.BLOB_READ_WRITE_TOKEN,
   qstashToken: process.env.QSTASH_TOKEN,
+  qstashUrl: process.env.QSTASH_URL,
   qstashCurrentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
   qstashNextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
   githubClientId: process.env.GITHUB_CLIENT_ID,

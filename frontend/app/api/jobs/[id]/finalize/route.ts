@@ -18,7 +18,7 @@ export async function POST(
   }
 
   if (env.qstashToken) {
-    const client = new Client({ token: env.qstashToken });
+    const client = new Client({ token: env.qstashToken, baseUrl: env.qstashUrl });
     const baseUrl = getBaseUrl(request);
     await client.publishJSON({
       url: `${baseUrl}/api/worker/run`,
