@@ -16,11 +16,11 @@ export async function GET(
   }
 
   const session = getSession(request);
-  if (!session?.userId && job.user_id) {
+  if (!session?.userId) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  if (job.user_id && job.user_id !== session?.userId) {
+  if (!job.user_id || job.user_id !== session.userId) {
     return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
   }
 

@@ -68,7 +68,11 @@ export default function UploadPaperModal() {
 
         const data = await response.json();
         if (!response.ok) {
-          setError(data?.message || 'UPLOAD FAILED.');
+          if (response.status === 401) {
+            setError('LOGIN REQUIRED.');
+          } else {
+            setError(data?.message || 'UPLOAD FAILED.');
+          }
           setResult(null);
           return;
         }
@@ -87,7 +91,11 @@ export default function UploadPaperModal() {
         const finalizeData = await finalizeResponse.json().catch(() => ({}));
 
         if (!finalizeResponse.ok) {
-          setError(finalizeData?.message || 'FAILED TO QUEUE JOB.');
+          if (finalizeResponse.status === 401) {
+            setError('LOGIN REQUIRED.');
+          } else {
+            setError(finalizeData?.message || 'FAILED TO QUEUE JOB.');
+          }
           setResult({
             id: jobId,
             status: data?.status,

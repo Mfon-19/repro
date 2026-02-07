@@ -7,6 +7,9 @@ export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   const session = getSession(request);
+  if (!session?.userId) {
+    return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
+  }
   let result: Awaited<ReturnType<typeof createJobFromUpload>>;
   try {
     result = await createJobFromUpload(request, { userId: session?.userId });

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 import { fetchJob } from '../../_lib/jobs';
+import { getSession } from '../../_lib/session';
 
 export const runtime = 'nodejs';
 
@@ -8,10 +9,17 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = getSession(_request);
+  if (!session?.userId) {
+    return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
+  }
   const { id } = await params;
   const job = await fetchJob(id);
   if (!job) {
     return NextResponse.json({ error: 'not_found', message: 'job not found' }, { status: 404 });
+  }
+  if (!job.user_id || job.user_id !== session.userId) {
+    return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
   }
 
   let result = job.result_json as unknown;

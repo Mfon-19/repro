@@ -19,7 +19,7 @@ export async function GET(
     return NextResponse.json({ error: 'not_found', message: 'job not found' }, { status: 404 });
   }
 
-  if (job.user_id && job.user_id !== session.userId) {
+  if (!job.user_id || job.user_id !== session.userId) {
     return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
   }
 

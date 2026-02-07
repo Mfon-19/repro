@@ -42,7 +42,7 @@ const communityPapers = [
   },
 ];
 
-import UploadPaperModal from '@/components/UploadPaperModal';
+import UploadPaperGate from '@/components/UploadPaperGate';
 
 const categories = [
   'DISTRIBUTED_SYSTEMS',
@@ -66,7 +66,7 @@ export default function HomePage() {
               START A NEW PAPER IN MINUTES.
             </p>
           </div>
-          <UploadPaperModal />
+          <UploadPaperGate />
         </header>
 
         <section className="mb-12">

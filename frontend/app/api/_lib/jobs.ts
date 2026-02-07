@@ -113,14 +113,16 @@ export async function fetchJob(jobId: string) {
   return result.rows[0] || null;
 }
 
-export async function markJobQueued(jobId: string) {
+export async function markJobQueued(jobId: string, userId: string) {
   const result = await sql<JobRow>`
     update jobs
     set status = 'queued',
         stage = 'queued',
         progress_pct = greatest(progress_pct, 15),
         updated_at = now()
-    where id = ${jobId} and status in ('uploading', 'queued')
+    where id = ${jobId}
+      and user_id = ${userId}
+      and status in ('uploading', 'queued')
     returning *
   `;
   return result.rows[0] || null;
