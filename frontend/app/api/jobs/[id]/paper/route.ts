@@ -9,18 +9,18 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = getSession(request);
-  if (!session?.userId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-
   const { id } = await params;
   const job = await fetchJob(id);
   if (!job) {
     return NextResponse.json({ error: 'not_found', message: 'job not found' }, { status: 404 });
   }
 
-  if (job.user_id && job.user_id !== session.userId) {
+  const session = getSession(request);
+  if (!session?.userId && job.user_id) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  if (job.user_id && job.user_id !== session?.userId) {
     return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
   }
 

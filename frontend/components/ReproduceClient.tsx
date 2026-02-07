@@ -111,9 +111,7 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   const title = job?.paper?.title || job?.result?.title || `PAPER ${paperId}`;
   const statusLabel = job ? `${job.status.toUpperCase()} · ${job.stage.toUpperCase()}` : 'LOADING';
   const progressLabel = job ? `${job.progress_pct}%` : '--';
-  const pdfUrl = job?.paper?.paper_url
-    ? `${apiBase}${job.paper.paper_url}`
-    : '';
+  const pdfUrl = job?.paper?.paper_url || '';
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
