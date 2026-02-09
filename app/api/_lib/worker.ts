@@ -1,4 +1,5 @@
 import { put } from '@vercel/blob';
+import { jsonrepair } from 'jsonrepair';
 
 import { sql } from './db';
 import { env } from './env';
@@ -111,6 +112,15 @@ function normalizeJsonStringLiterals(input: string) {
   return out;
 }
 
+function parseJsonWithRepair(input: string) {
+  try {
+    return JSON.parse(input) as Partial<ScaffoldResult>;
+  } catch {
+    const repaired = jsonrepair(input);
+    return JSON.parse(repaired) as Partial<ScaffoldResult>;
+  }
+}
+
 function isValidScaffoldResult(value: unknown): value is ParsedScaffold {
   if (!value || typeof value !== 'object') {
     return false;
@@ -171,7 +181,7 @@ ${trimmed}`;
         ],
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 1200,
+          maxOutputTokens: 4000,
           responseMimeType: 'application/json',
           responseJsonSchema: schema,
         },
@@ -412,7 +422,7 @@ Context title: "${safeTitle}"
           ],
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 1500,
+            maxOutputTokens: 6000,
             responseMimeType: 'application/json',
             responseJsonSchema: scaffoldSchema,
           },
@@ -451,7 +461,7 @@ Context title: "${safeTitle}"
     try {
       const rawJson = extractJsonObject(text);
       const normalizedJson = normalizeJsonStringLiterals(rawJson);
-      parsed = JSON.parse(normalizedJson) as Partial<ScaffoldResult>;
+      parsed = parseJsonWithRepair(normalizedJson);
       if (!isValidScaffoldResult(parsed)) {
         if (debugEnabled) {
           console.warn('Gemini response failed schema validation', parsed);
@@ -467,7 +477,7 @@ Context title: "${safeTitle}"
         try {
           const rawJson = extractJsonObject(repaired);
           const normalizedJson = normalizeJsonStringLiterals(rawJson);
-          parsed = JSON.parse(normalizedJson) as Partial<ScaffoldResult>;
+          parsed = parseJsonWithRepair(normalizedJson);
           if (isValidScaffoldResult(parsed)) {
             const base = buildScaffold(title, jobId);
             const tasks = parsed.tasks
