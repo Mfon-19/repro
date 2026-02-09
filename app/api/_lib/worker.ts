@@ -21,22 +21,32 @@ function buildScaffold(title: string | null, jobId: string): ScaffoldResult {
   return {
     jobId,
     title: safeTitle,
-    tasks: ['IMPLEMENT CORE ALGORITHM', 'ADD TEST HARNESS', 'WRITE PERFORMANCE NOTES'],
+    tasks: ['IMPLEMENT BINARY SEARCH', 'HANDLE EDGE CASES', 'ADD TEST COVERAGE'],
     files: [
+      {
+        path: 'package.json',
+        language: 'json',
+        value: `{
+  "name": "repro-submission",
+  "private": true,
+  "type": "module"
+}
+`,
+      },
       {
         path: 'README.md',
         language: 'markdown',
-        value: `# ${safeTitle}\n\nGenerated scaffold for reproduction.\n`,
+        value: `# ${safeTitle}\n\nWarmup: implement binary search to validate the pipeline.\n`,
       },
       {
-        path: 'src/index.ts',
+        path: 'src/binary_search.ts',
         language: 'typescript',
-        value: `// ${safeTitle} reproduction scaffold\n\nexport function run() {\n  // TODO: implement core logic\n  return 'todo';\n}\n`,
+        value: `// Implement binary search over a sorted array.\n\nexport function binarySearch(values: number[], target: number): number {\n  // TODO: return the index of target or -1 if not found\n  return -1;\n}\n`,
       },
       {
-        path: 'tests/spec.test.ts',
+        path: 'tests/binary_search.test.ts',
         language: 'typescript',
-        value: `import { run } from '../src/index';\n\ndescribe('repro', () => {\n  it('returns placeholder', () => {\n    expect(run()).toBe('todo');\n  });\n});\n`,
+        value: `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { binarySearch } from '../src/binary_search';\n\ntest('finds existing values', () => {\n  assert.equal(binarySearch([1, 3, 5, 7, 9], 7), 3);\n  assert.equal(binarySearch([2, 4, 6, 8], 2), 0);\n});\n\ntest('returns -1 when missing', () => {\n  assert.equal(binarySearch([1, 3, 5], 2), -1);\n  assert.equal(binarySearch([], 10), -1);\n});\n`,
       },
     ],
   };

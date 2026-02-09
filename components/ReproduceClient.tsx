@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { zipSync, strToU8 } from 'fflate';
 
 import IdePanel from '@/components/IdePanel';
@@ -8,26 +8,31 @@ import PdfViewerClient from '@/components/PdfViewerClient';
 import type { CodeFile } from '@/components/CodeEditor';
 
 const defaultTasks = [
-  'IMPLEMENT APPEND_ENTRIES RPC',
-  'ENFORCE TERM AND COMMIT RULES',
-  'SIMULATE NETWORK PARTITIONS',
+  'IMPLEMENT BINARY SEARCH',
+  'HANDLE EDGE CASES',
+  'ADD TEST COVERAGE',
 ];
 
 const defaultFiles: CodeFile[] = [
   {
+    path: 'package.json',
+    language: 'json',
+    value: `{\n  \"name\": \"repro-submission\",\n  \"private\": true,\n  \"type\": \"module\"\n}\n`,
+  },
+  {
     path: 'README.md',
     language: 'markdown',
-    value: `# RAFT REPRODUCTION\n\nImplement log replication using the shared scaffold.\n`,
+    value: `# BINARY SEARCH WARMUP\n\nImplement binary search to validate the pipeline.\n`,
   },
   {
-    path: 'src/raft.ts',
+    path: 'src/binary_search.ts',
     language: 'typescript',
-    value: `type LogEntry = {\n  term: number;\n  index: number;\n  data: Uint8Array;\n};\n\ntype AppendRequest = {\n  term: number;\n  leaderId: string;\n  entries: LogEntry[];\n  leaderCommit: number;\n};\n\ntype AppendResponse = {\n  success: boolean;\n  term: number;\n};\n\n// AppendEntries handles leader replication requests.\nexport function appendEntries(req: AppendRequest): AppendResponse {\n  // TODO: validate term and log consistency\n  // TODO: append new entries and update commit index\n  return { success: false, term: req.term };\n}\n`,
+    value: `// Implement binary search over a sorted array.\n\nexport function binarySearch(values: number[], target: number): number {\n  // TODO: return the index of target or -1 if not found\n  return -1;\n}\n`,
   },
   {
-    path: 'tests/raft_spec.test.ts',
+    path: 'tests/binary_search.test.ts',
     language: 'typescript',
-    value: `import { appendEntries } from '../src/raft';\n\ndescribe('appendEntries', () => {\n  it('rejects empty entries for now', () => {\n    const result = appendEntries({ term: 1, leaderId: 'n1', entries: [], leaderCommit: 0 });\n    expect(result.success).toBe(false);\n  });\n});\n`,
+    value: `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { binarySearch } from '../src/binary_search';\n\ntest('finds existing values', () => {\n  assert.equal(binarySearch([1, 3, 5, 7, 9], 7), 3);\n  assert.equal(binarySearch([2, 4, 6, 8], 2), 0);\n});\n\ntest('returns -1 when missing', () => {\n  assert.equal(binarySearch([1, 3, 5], 2), -1);\n  assert.equal(binarySearch([], 10), -1);\n});\n`,
   },
 ];
 
@@ -67,6 +72,8 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   const [files, setFiles] = useState<CodeFile[]>(defaultFiles);
   const [runBusy, setRunBusy] = useState(false);
   const [submission, setSubmission] = useState<SubmissionStatus | null>(null);
+  const appliedTasksRef = useRef(false);
+  const appliedFilesRef = useRef(false);
 
   const apiBase = useMemo(() => {
     const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
@@ -78,9 +85,15 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
       return;
     }
     let cancelled = false;
+    let shouldPoll = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    appliedTasksRef.current = false;
+    appliedFilesRef.current = false;
 
     const poll = async () => {
+      if (!shouldPoll) {
+        return;
+      }
       try {
         const response = await fetch(`${apiBase}/api/jobs/${paperId}`, { credentials: 'include' });
         if (!response.ok) {
@@ -93,13 +106,21 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
         setJob(data);
         setError('');
 
-        if (data?.result?.tasks?.length) {
+        if (data?.result?.tasks?.length && !appliedTasksRef.current) {
           setTasks(data.result.tasks);
+          appliedTasksRef.current = true;
         }
-        if (data?.result?.files?.length) {
+        if (data?.result?.files?.length && !appliedFilesRef.current) {
           setFiles(data.result.files);
+          appliedFilesRef.current = true;
         }
-        if (data.status === 'completed' || data.status === 'failed') {
+        const isDone =
+          data.status === 'completed' ||
+          data.status === 'failed' ||
+          (data.result && data.progress_pct >= 100);
+
+        if (isDone) {
+          shouldPoll = false;
           return;
         }
 
@@ -115,6 +136,7 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
 
     return () => {
       cancelled = true;
+      shouldPoll = false;
       if (timer) {
         clearTimeout(timer);
       }

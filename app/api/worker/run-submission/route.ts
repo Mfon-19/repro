@@ -7,6 +7,9 @@ import { processSubmission } from '../../_lib/submission-worker';
 export const runtime = 'nodejs';
 
 async function verifySignature(request: NextRequest, rawBody: string) {
+  if (process.env.NODE_ENV === 'development') {
+    return true;
+  }
   if (!env.qstashCurrentSigningKey || !env.qstashNextSigningKey) {
     return true;
   }

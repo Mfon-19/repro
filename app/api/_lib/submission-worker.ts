@@ -20,7 +20,7 @@ function resolveRunCommand(language: string) {
     cmd: 'bash',
     args: [
       '-lc',
-      'cd /vercel/sandbox/workspace && if [ -f package.json ]; then npm install --silent && npx --yes tsx --test; else node -e "console.log(\"No tests configured\")"; fi',
+      'cd /vercel/sandbox/workspace && if [ -f package.json ]; then npm install --silent && npx --yes tsx --test; else printf "No tests configured\\n"; fi',
     ],
   };
 }
