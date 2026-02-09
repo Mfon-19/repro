@@ -1,7 +1,8 @@
 import { put } from '@vercel/blob';
 
 import { sql } from './db';
-import { claimJob, completeJob, failJob } from './jobs';
+import { env } from './env';
+import { claimJob, completeJob, failJob, updateGeminiFile } from './jobs';
 import { extractPdfTitle } from './pdf';
 
 export type ProcessResult =
@@ -16,12 +17,17 @@ type ScaffoldResult = {
   files: { path: string; language: string; value: string }[];
 };
 
+type GeminiFile = {
+  uri: string;
+  mimeType: string;
+};
+
 function buildScaffold(title: string | null, jobId: string): ScaffoldResult {
   const safeTitle = title || 'Untitled Paper';
   return {
     jobId,
     title: safeTitle,
-    tasks: ['IMPLEMENT BINARY SEARCH', 'HANDLE EDGE CASES', 'ADD TEST COVERAGE'],
+    tasks: ['IMPLEMENT CORE ALGORITHM', 'DEFINE DATA STRUCTURES', 'ADD TEST HARNESS'],
     files: [
       {
         path: 'package.json',
@@ -36,28 +42,201 @@ function buildScaffold(title: string | null, jobId: string): ScaffoldResult {
       {
         path: 'README.md',
         language: 'markdown',
-        value: `# ${safeTitle}\n\nWarmup: implement binary search to validate the pipeline.\n`,
+        value: `# ${safeTitle}\n\nImplement the paper's core algorithm and data structures.\n\n## Notes\n- Fill in TODOs in src/solution.ts\n- Update tests with expected behaviors once the algorithm is implemented\n`,
       },
       {
-        path: 'src/binary_search.ts',
+        path: 'src/solution.ts',
         language: 'typescript',
-        value: `// Implement binary search over a sorted array.\n\nexport function binarySearch(values: number[], target: number): number {\n  // TODO: return the index of target or -1 if not found\n  return -1;\n}\n`,
+        value: `// Core solution entrypoint.\n\nexport function solve(input: string): string {\n  // TODO: parse input, implement the algorithm, and return output.\n  return '';\n}\n`,
       },
       {
-        path: 'tests/binary_search.test.ts',
+        path: 'tests/solution.test.ts',
         language: 'typescript',
-        value: `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { binarySearch } from '../src/binary_search';\n\ntest('finds existing values', () => {\n  assert.equal(binarySearch([1, 3, 5, 7, 9], 7), 3);\n  assert.equal(binarySearch([2, 4, 6, 8], 2), 0);\n});\n\ntest('returns -1 when missing', () => {\n  assert.equal(binarySearch([1, 3, 5], 2), -1);\n  assert.equal(binarySearch([], 10), -1);\n});\n`,
+        value: `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { solve } from '../src/solution';\n\ntest('placeholder behavior', () => {\n  // TODO: replace with real examples once you implement the algorithm.\n  assert.equal(solve('input'), 'output');\n});\n`,
       },
     ],
   };
 }
 
-async function generateScaffoldWithLlm(title: string | null, jobId: string): Promise<ScaffoldResult> {
-  // TODO: Replace this mock with a real LLM call.
-  // - Send the extracted title + (optional) PDF text to your model provider.
-  // - Parse the response into { tasks, files } and return that structure.
-  // - Consider adding retries + a fallback scaffold.
-  return buildScaffold(title, jobId);
+async function uploadPdfToGemini(
+  apiKey: string,
+  buffer: Buffer,
+  filename: string
+): Promise<GeminiFile | null> {
+  const mimeType = 'application/pdf';
+  const uploadInit = await fetch(
+    `https://generativelanguage.googleapis.com/upload/v1beta/files?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'X-Goog-Upload-Protocol': 'resumable',
+        'X-Goog-Upload-Command': 'start',
+        'X-Goog-Upload-Header-Content-Length': buffer.length.toString(),
+        'X-Goog-Upload-Header-Content-Type': mimeType,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        file: {
+          display_name: filename || 'paper.pdf',
+        },
+      }),
+    }
+  );
+
+  if (!uploadInit.ok) {
+    return null;
+  }
+
+  const uploadUrl = uploadInit.headers.get('x-goog-upload-url');
+  if (!uploadUrl) {
+    return null;
+  }
+
+  const uploadResp = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Length': buffer.length.toString(),
+      'X-Goog-Upload-Offset': '0',
+      'X-Goog-Upload-Command': 'upload, finalize',
+      'Content-Type': mimeType,
+    },
+    body: new Uint8Array(buffer),
+  });
+
+  if (!uploadResp.ok) {
+    return null;
+  }
+
+  const data = (await uploadResp.json()) as { file?: { uri?: string; mimeType?: string } };
+  if (!data.file?.uri) {
+    return null;
+  }
+
+  return {
+    uri: data.file.uri,
+    mimeType: data.file.mimeType || mimeType,
+  };
+}
+
+async function generateScaffoldWithLlm(
+  title: string | null,
+  jobId: string,
+  pdfFile?: GeminiFile | null
+): Promise<ScaffoldResult> {
+  const apiKey = env.geminiApiKey;
+  if (!apiKey) {
+    return buildScaffold(title, jobId);
+  }
+
+  const model = env.geminiModel || 'gemini-2.5-flash';
+  const safeTitle = title || 'Untitled Paper';
+
+  const prompt = `You are generating a code scaffold for a LeetCode-style reproduction task based on an academic paper.
+Return ONLY strict JSON with this shape:
+{
+  "tasks": ["TASK 1", "TASK 2"],
+  "files": [
+    { "path": "package.json", "language": "json", "value": "..." },
+    { "path": "README.md", "language": "markdown", "value": "..." },
+    { "path": "src/solution.ts", "language": "typescript", "value": "..." },
+    { "path": "tests/solution.test.ts", "language": "typescript", "value": "..." }
+  ]
+}
+Constraints:
+- Output MUST be valid JSON with double quotes and no trailing commas.
+- Do NOT wrap in markdown or code fences.
+- You may return any number of tasks (up to 5).
+- You may return any number of files.
+- Every function you create MUST include a TODO comment describing the high-level implementation goal.
+- Include comprehensive tests that use Node's built-in node:test and assert/strict.
+- The scaffold should ask the user to implement the paper's algorithm(s).
+Use the PDF content to infer the algorithm, data structures, and expected behaviors.
+Context title: "${safeTitle}"
+`;
+
+  try {
+    const parts: Array<{ text?: string; file_data?: { mime_type: string; file_uri: string } }> = [
+      { text: prompt },
+    ];
+    if (pdfFile) {
+      parts.push({
+        file_data: {
+          mime_type: pdfFile.mimeType,
+          file_uri: pdfFile.uri,
+        },
+      });
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: 'user',
+              parts,
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1500,
+          },
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      return buildScaffold(title, jobId);
+    }
+
+    const data = (await response.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
+    };
+
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) {
+      return buildScaffold(title, jobId);
+    }
+
+    const parsed = JSON.parse(text) as Partial<ScaffoldResult>;
+    const base = buildScaffold(title, jobId);
+
+    const tasks = Array.isArray(parsed.tasks)
+      ? parsed.tasks
+          .filter((task) => typeof task === 'string' && task.trim().length > 0)
+          .slice(0, 5)
+      : base.tasks;
+
+    const files = Array.isArray(parsed.files)
+      ? parsed.files
+          .filter((file) => file && typeof file.path === 'string' && typeof file.value === 'string')
+          .map((file) => ({
+            path: file.path,
+            language: typeof file.language === 'string' ? file.language : 'text',
+            value: file.value,
+          }))
+      : base.files;
+
+    if (!tasks.length || !files.length) {
+      return base;
+    }
+
+    return {
+      jobId,
+      title: base.title,
+      tasks,
+      files,
+    };
+  } catch {
+    return buildScaffold(title, jobId);
+  }
 }
 
 async function updateProgress(jobId: string, stage: string, progress: number) {
@@ -93,7 +272,33 @@ export async function processJob(jobId: string): Promise<ProcessResult> {
     const resolvedTitle = extractedTitle || job.paper_title || null;
 
     await updateProgress(jobId, 'generating_scaffold', 75);
-    const resultJson = await generateScaffoldWithLlm(resolvedTitle, jobId);
+
+    let cachedFile: GeminiFile | null = null;
+    if (job.gemini_file_uri && job.gemini_file_mime && job.gemini_file_created_at) {
+      const createdAt = new Date(job.gemini_file_created_at).getTime();
+      const maxAgeMs = 46 * 60 * 60 * 1000;
+      if (!Number.isNaN(createdAt) && createdAt > Date.now() - maxAgeMs) {
+        cachedFile = {
+          uri: job.gemini_file_uri,
+          mimeType: job.gemini_file_mime,
+        };
+      }
+    }
+
+    let geminiFile = cachedFile;
+    if (!geminiFile && env.geminiApiKey) {
+      const uploaded = await uploadPdfToGemini(
+        env.geminiApiKey,
+        buffer,
+        job.paper_filename || 'paper.pdf'
+      );
+      if (uploaded) {
+        geminiFile = uploaded;
+        await updateGeminiFile(jobId, uploaded);
+      }
+    }
+
+    const resultJson = await generateScaffoldWithLlm(resolvedTitle, jobId, geminiFile);
 
     const resultBlob = await put(`results/${jobId}/scaffold.json`, JSON.stringify(resultJson, null, 2), {
       access: 'public',

@@ -5,6 +5,8 @@ export const env = {
   qstashUrl: process.env.QSTASH_URL,
   qstashCurrentSigningKey: process.env.QSTASH_CURRENT_SIGNING_KEY,
   qstashNextSigningKey: process.env.QSTASH_NEXT_SIGNING_KEY,
+  geminiApiKey: process.env.GEMINI_API_KEY,
+  geminiModel: process.env.GEMINI_MODEL,
   githubClientId: process.env.GITHUB_CLIENT_ID,
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET,
   githubCallbackUrl: process.env.GITHUB_CALLBACK_URL,

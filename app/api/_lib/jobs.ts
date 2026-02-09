@@ -15,6 +15,9 @@ export type JobRow = {
   paper_filename: string | null;
   paper_blob_url: string | null;
   paper_blob_path?: string | null;
+  gemini_file_uri?: string | null;
+  gemini_file_mime?: string | null;
+  gemini_file_created_at?: string | null;
   result_json: unknown | null;
   result_blob_url: string | null;
   error_code: string | null;
@@ -138,6 +141,22 @@ export async function claimJob(jobId: string) {
         attempt_count = attempt_count + 1,
         updated_at = now()
     where id = ${jobId} and status = 'queued'
+    returning *
+  `;
+  return result.rows[0] || null;
+}
+
+export async function updateGeminiFile(
+  jobId: string,
+  file: { uri: string; mimeType: string }
+) {
+  const result = await sql<JobRow>`
+    update jobs
+    set gemini_file_uri = ${file.uri},
+        gemini_file_mime = ${file.mimeType},
+        gemini_file_created_at = now(),
+        updated_at = now()
+    where id = ${jobId}
     returning *
   `;
   return result.rows[0] || null;

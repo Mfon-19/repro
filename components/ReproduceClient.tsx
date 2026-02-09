@@ -8,9 +8,9 @@ import PdfViewerClient from '@/components/PdfViewerClient';
 import type { CodeFile } from '@/components/CodeEditor';
 
 const defaultTasks = [
-  'IMPLEMENT BINARY SEARCH',
-  'HANDLE EDGE CASES',
-  'ADD TEST COVERAGE',
+  'IMPLEMENT CORE ALGORITHM',
+  'DEFINE DATA STRUCTURES',
+  'ADD TEST HARNESS',
 ];
 
 const defaultFiles: CodeFile[] = [
@@ -22,17 +22,17 @@ const defaultFiles: CodeFile[] = [
   {
     path: 'README.md',
     language: 'markdown',
-    value: `# BINARY SEARCH WARMUP\n\nImplement binary search to validate the pipeline.\n`,
+    value: `# REPRODUCTION SCAFFOLD\n\nImplement the paper's core algorithm and data structures.\n`,
   },
   {
-    path: 'src/binary_search.ts',
+    path: 'src/solution.ts',
     language: 'typescript',
-    value: `// Implement binary search over a sorted array.\n\nexport function binarySearch(values: number[], target: number): number {\n  // TODO: return the index of target or -1 if not found\n  return -1;\n}\n`,
+    value: `// Core solution entrypoint.\n\nexport function solve(input: string): string {\n  // TODO: parse input, implement the algorithm, and return output.\n  return '';\n}\n`,
   },
   {
-    path: 'tests/binary_search.test.ts',
+    path: 'tests/solution.test.ts',
     language: 'typescript',
-    value: `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { binarySearch } from '../src/binary_search';\n\ntest('finds existing values', () => {\n  assert.equal(binarySearch([1, 3, 5, 7, 9], 7), 3);\n  assert.equal(binarySearch([2, 4, 6, 8], 2), 0);\n});\n\ntest('returns -1 when missing', () => {\n  assert.equal(binarySearch([1, 3, 5], 2), -1);\n  assert.equal(binarySearch([], 10), -1);\n});\n`,
+    value: `import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { solve } from '../src/solution';\n\ntest('placeholder behavior', () => {\n  // TODO: replace with real examples once you implement the algorithm.\n  assert.equal(solve('input'), 'output');\n});\n`,
   },
 ];
 
