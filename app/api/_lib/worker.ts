@@ -181,7 +181,7 @@ ${trimmed}`;
         ],
         generationConfig: {
           temperature: 0,
-          maxOutputTokens: 8000,
+          maxOutputTokens: 65536,
           responseMimeType: 'application/json',
           responseJsonSchema: schema,
         },
@@ -422,7 +422,7 @@ Context title: "${safeTitle}"
           ],
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 12000,
+            maxOutputTokens: 65536,
             responseMimeType: 'application/json',
             responseJsonSchema: scaffoldSchema,
           },
