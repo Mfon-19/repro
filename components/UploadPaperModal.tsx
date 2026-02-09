@@ -8,6 +8,7 @@ type UploadResult = {
   status?: string;
   message?: string;
   stage?: string;
+  progress_pct?: number;
   error?: string;
 };
 
@@ -29,9 +30,12 @@ export default function UploadPaperModal() {
   }, []);
 
   const closeModal = useCallback(() => {
+    if (busy) {
+      return;
+    }
     setOpen(false);
     resetState();
-  }, [resetState]);
+  }, [busy, resetState]);
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -105,6 +109,50 @@ export default function UploadPaperModal() {
           return;
         }
 
+        setResult({
+          id: jobId,
+          status: finalizeData?.status || data?.status || 'queued',
+          stage: finalizeData?.stage || data?.stage || 'queued',
+          progress_pct: finalizeData?.progress_pct || data?.progress_pct || 0,
+          message: 'GENERATING SCAFFOLD...',
+        });
+
+        const poll = async () => {
+          const response = await fetch(`${apiBase}/api/jobs/${jobId}`, {
+            credentials: 'include',
+          });
+          if (!response.ok) {
+            throw new Error('FAILED TO LOAD JOB STATUS.');
+          }
+          return (await response.json()) as UploadResult & {
+            status?: string;
+            progress_pct?: number;
+            error?: string;
+          };
+        };
+
+        while (true) {
+          const status = await poll();
+          setResult((prev) => ({
+            ...prev,
+            id: jobId,
+            status: status?.status || prev?.status,
+            stage: status?.stage || prev?.stage,
+            progress_pct: status?.progress_pct ?? prev?.progress_pct,
+            message: status?.status === 'completed' ? 'READY.' : 'GENERATING SCAFFOLD...',
+            error: status?.error || prev?.error,
+          }));
+
+          if (status?.status === 'completed') {
+            break;
+          }
+          if (status?.status === 'failed') {
+            throw new Error(status?.error || 'JOB FAILED.');
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 4000));
+        }
+
         closeModal();
         router.push(`/reproduce/${jobId}`);
       } catch {
@@ -161,6 +209,7 @@ export default function UploadPaperModal() {
                 <div className="text-xs text-[#666] border border-[var(--border)] p-3">
                   <div>STATUS: {result.status || 'QUEUED'}</div>
                   {result.stage && <div>STAGE: {result.stage}</div>}
+                  {typeof result.progress_pct === 'number' && <div>PROGRESS: {result.progress_pct}%</div>}
                   <div>ID: {result.id || 'PENDING'}</div>
                   <div>{result.message}</div>
                 </div>
@@ -176,7 +225,7 @@ export default function UploadPaperModal() {
                   CANCEL
                 </button>
                 <button type="submit" className="btn-solid text-xs px-4 py-2" disabled={busy}>
-                  {busy ? 'UPLOADING...' : 'START'}
+                  {busy ? 'PROCESSING...' : 'START'}
                 </button>
               </div>
             </form>

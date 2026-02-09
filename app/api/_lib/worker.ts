@@ -69,6 +69,7 @@ async function uploadPdfToGemini(
     {
       method: 'POST',
       headers: {
+        'x-goog-api-key': apiKey,
         'X-Goog-Upload-Protocol': 'resumable',
         'X-Goog-Upload-Command': 'start',
         'X-Goog-Upload-Header-Content-Length': buffer.length.toString(),
@@ -84,11 +85,19 @@ async function uploadPdfToGemini(
   );
 
   if (!uploadInit.ok) {
+    let detail = '';
+    try {
+      detail = await uploadInit.text();
+    } catch {
+      detail = '';
+    }
+    console.warn('Gemini file upload init failed', uploadInit.status, detail);
     return null;
   }
 
-  const uploadUrl = uploadInit.headers.get('x-goog-upload-url');
+  const uploadUrl = uploadInit.headers.get('x-goog-upload-url')?.trim();
   if (!uploadUrl) {
+    console.warn('Gemini file upload init missing upload url');
     return null;
   }
 
@@ -104,6 +113,13 @@ async function uploadPdfToGemini(
   });
 
   if (!uploadResp.ok) {
+    let detail = '';
+    try {
+      detail = await uploadResp.text();
+    } catch {
+      detail = '';
+    }
+    console.warn('Gemini file upload failed', uploadResp.status, detail);
     return null;
   }
 
@@ -128,10 +144,20 @@ async function generateScaffoldWithLlm(
     return buildScaffold(title, jobId);
   }
 
-  const model = env.geminiModel || 'gemini-2.5-flash';
+  const model = env.geminiModel || 'gemini-3-flash-preview';
   const safeTitle = title || 'Untitled Paper';
+  const debugEnabled = env.geminiDebug === '1' || process.env.NODE_ENV !== 'production';
 
-  const prompt = `You are generating a code scaffold for a LeetCode-style reproduction task based on an academic paper.
+  const prompt = `You are an expert algorithm instructor and researcher.
+Your task is to analyze the provided research paper (PDF or text) and distill the core algorithmic contribution into a "LeetCode-style" programming challenge.
+
+Focus on the main algorithm, data structure, or logic proposed in the paper.
+Simplify the context so it fits a single-file implementation task.
+Return the result strictly as a JSON object matching the requested schema.
+"Extract the main algorithm from this paper and create a coding problem."
+
+Your output will be used as the student's starter code stub.
+
 Return ONLY strict JSON with this shape:
 {
   "tasks": ["TASK 1", "TASK 2"],
@@ -151,6 +177,12 @@ Constraints:
 - Include comprehensive tests that use Node's built-in node:test and assert/strict.
 - The scaffold should ask the user to implement the paper's algorithm(s).
 Use the PDF content to infer the algorithm, data structures, and expected behaviors.
+Design guidance:
+- Prefer small, well-named functions with clear responsibilities.
+- Include type definitions and interfaces for core data structures.
+- Add TODOs for tricky sections: invariants, concurrency, failure modes, performance.
+- In tests, cover happy path, edge cases, and at least one adversarial scenario.
+Output must be executable in Node 22 with TypeScript via tsx.
 Context title: "${safeTitle}"
 `;
 
@@ -191,6 +223,15 @@ Context title: "${safeTitle}"
     );
 
     if (!response.ok) {
+      if (debugEnabled) {
+        let detail = '';
+        try {
+          detail = await response.text();
+        } catch {
+          detail = '';
+        }
+        console.warn('Gemini generateContent failed', response.status, detail);
+      }
       return buildScaffold(title, jobId);
     }
 
@@ -202,10 +243,21 @@ Context title: "${safeTitle}"
 
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) {
+      if (debugEnabled) {
+        console.warn('Gemini returned empty content', data);
+      }
       return buildScaffold(title, jobId);
     }
 
-    const parsed = JSON.parse(text) as Partial<ScaffoldResult>;
+    let parsed: Partial<ScaffoldResult> | null = null;
+    try {
+      parsed = JSON.parse(text) as Partial<ScaffoldResult>;
+    } catch (error) {
+      if (debugEnabled) {
+        console.warn('Gemini JSON parse failed', error, text);
+      }
+      return buildScaffold(title, jobId);
+    }
     const base = buildScaffold(title, jobId);
 
     const tasks = Array.isArray(parsed.tasks)
@@ -225,6 +277,9 @@ Context title: "${safeTitle}"
       : base.files;
 
     if (!tasks.length || !files.length) {
+      if (debugEnabled) {
+        console.warn('Gemini returned empty tasks or files', { tasks, filesCount: files.length });
+      }
       return base;
     }
 
