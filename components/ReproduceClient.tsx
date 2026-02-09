@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { zipSync, strToU8 } from 'fflate';
 
 import IdePanel from '@/components/IdePanel';
 import PdfViewerClient from '@/components/PdfViewerClient';
+import type { CodeFile } from '@/components/CodeEditor';
 
 const defaultTasks = [
   'IMPLEMENT APPEND_ENTRIES RPC',
@@ -11,7 +13,7 @@ const defaultTasks = [
   'SIMULATE NETWORK PARTITIONS',
 ];
 
-const defaultFiles = [
+const defaultFiles: CodeFile[] = [
   {
     path: 'README.md',
     language: 'markdown',
@@ -45,6 +47,15 @@ type JobStatus = {
   error?: string | null;
 };
 
+type SubmissionStatus = {
+  id: string;
+  status: string;
+  stage: string;
+  progress_pct: number;
+  result?: { stdout?: string; stderr?: string; exitCode?: number } | null;
+  error?: string | null;
+};
+
 type ReproduceClientProps = {
   paperId: string;
 };
@@ -53,7 +64,9 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   const [job, setJob] = useState<JobStatus | null>(null);
   const [error, setError] = useState('');
   const [tasks, setTasks] = useState(defaultTasks);
-  const [files, setFiles] = useState(defaultFiles);
+  const [files, setFiles] = useState<CodeFile[]>(defaultFiles);
+  const [runBusy, setRunBusy] = useState(false);
+  const [submission, setSubmission] = useState<SubmissionStatus | null>(null);
 
   const apiBase = useMemo(() => {
     const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
@@ -113,6 +126,111 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   const progressLabel = job ? `${job.progress_pct}%` : '--';
   const pdfUrl = job?.paper?.paper_url || '';
 
+  const handleRunTests = useCallback(async () => {
+    if (runBusy) {
+      return;
+    }
+    setRunBusy(true);
+    setError('');
+
+    try {
+      const zipPayload: Record<string, Uint8Array> = {};
+      files.forEach((file) => {
+        zipPayload[file.path] = strToU8(file.value);
+      });
+      const zipped = zipSync(zipPayload, { level: 6 });
+      const zipBytes = new Uint8Array(zipped);
+      const blob = new Blob([zipBytes], { type: 'application/zip' });
+      const file = new File([blob], `submission-${paperId}.zip`, { type: 'application/zip' });
+
+      const formData = new FormData();
+      formData.append('submission', file);
+      formData.append('job_id', paperId);
+      formData.append('language', 'typescript');
+
+      const response = await fetch('/api/submissions', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data?.message || 'FAILED TO SUBMIT.');
+        return;
+      }
+
+      setSubmission({
+        id: data.id,
+        status: data.status,
+        stage: data.stage,
+        progress_pct: data.progress_pct,
+      });
+    } catch {
+      setError('FAILED TO PACKAGE SUBMISSION.');
+    } finally {
+      setRunBusy(false);
+    }
+  }, [files, paperId, runBusy]);
+
+  const runDisabled =
+    runBusy || submission?.status === 'queued' || submission?.status === 'running';
+
+  useEffect(() => {
+    if (!submission?.id) {
+      return;
+    }
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/submissions/${submission.id}`, { credentials: 'include' });
+        if (!response.ok) {
+          throw new Error('Failed to load submission');
+        }
+        const data = (await response.json()) as SubmissionStatus;
+        if (cancelled) {
+          return;
+        }
+        setSubmission((prev) => (prev ? { ...prev, ...data } : data));
+
+        if (data.status === 'completed' || data.status === 'failed') {
+          const resultResponse = await fetch(`/api/submissions/${submission.id}/result`, { credentials: 'include' });
+          if (resultResponse.ok) {
+            const resultData = await resultResponse.json();
+            setSubmission((prev) => {
+              if (!prev) {
+                return prev;
+              }
+              return {
+                ...prev,
+                result: resultData,
+                error: data.error || resultData?.error || null,
+              };
+            });
+          }
+          return;
+        }
+
+        timer = setTimeout(poll, 4000);
+      } catch {
+        if (!cancelled) {
+          setError('FAILED TO LOAD RUN STATUS.');
+        }
+      }
+    };
+
+    poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) {
+        clearTimeout(timer);
+      }
+    };
+  }, [submission?.id]);
+
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="border-b border-[var(--border)] px-6 py-4">
@@ -125,7 +243,13 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
             <span className="border border-[var(--border)] px-3 py-1">STATUS: {statusLabel}</span>
             <span className="border border-[var(--border)] px-3 py-1">PROGRESS: {progressLabel}</span>
             <button className="btn-outline text-xs px-4 py-2">REQUEST_REVIEW</button>
-            <button className="btn-solid text-xs px-4 py-2">RUN_TESTS</button>
+            <button
+              className="btn-solid text-xs px-4 py-2"
+              onClick={handleRunTests}
+              disabled={runDisabled}
+            >
+              {runDisabled ? 'RUNNING...' : 'RUN_TESTS'}
+            </button>
           </div>
         </div>
         {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
@@ -167,14 +291,32 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
               </div>
             </div>
 
-            <IdePanel files={files} height={520} />
+            <IdePanel files={files} height={520} onFilesChange={setFiles} />
 
             <div className="mt-5 border border-[var(--border)] bg-black/60 p-4">
-              <div className="text-xs text-[var(--accent)] mb-2">CONSOLE</div>
-              <div className="text-xs text-[#666] space-y-1">
-                <div>[RUN_02] SPEC CHECKS PASSED: 12/18</div>
-                <div>[RUN_02] FAILED: LOG_MATCHING@TERM_4</div>
-                <div>[RUN_02] TRACE: FOLLOWER_3 OUT OF SYNC</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs text-[var(--accent)]">CONSOLE</div>
+                <button className="btn-solid text-[10px] px-3 py-2" onClick={handleRunTests} disabled={runDisabled}>
+                  {runDisabled ? 'RUNNING...' : 'RUN_TESTS'}
+                </button>
+              </div>
+              <div className="text-[10px] text-[#666] space-y-2">
+                {submission ? (
+                  <>
+                    <div>STATUS: {submission.status?.toUpperCase()}</div>
+                    <div>STAGE: {submission.stage?.toUpperCase()}</div>
+                    <div>PROGRESS: {submission.progress_pct ?? 0}%</div>
+                    {submission.error && <div className="text-red-400">ERROR: {submission.error}</div>}
+                    {submission.result?.stdout && (
+                      <pre className="whitespace-pre-wrap text-[10px] text-[#8bd450]">{submission.result.stdout}</pre>
+                    )}
+                    {submission.result?.stderr && (
+                      <pre className="whitespace-pre-wrap text-[10px] text-red-400">{submission.result.stderr}</pre>
+                    )}
+                  </>
+                ) : (
+                  <div>NO RUNS YET.</div>
+                )}
               </div>
             </div>
           </section>

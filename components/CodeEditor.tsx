@@ -30,9 +30,10 @@ type CodeEditorProps = {
   files: CodeFile[];
   activePath: string;
   height?: number;
+  onFileChange?: (path: string, value: string) => void;
 };
 
-export default function CodeEditor({ files, activePath, height = 520 }: CodeEditorProps) {
+export default function CodeEditor({ files, activePath, height = 520, onFileChange }: CodeEditorProps) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
 
@@ -59,6 +60,15 @@ export default function CodeEditor({ files, activePath, height = 520 }: CodeEdit
 
     ensureModels(monaco, files);
     setActiveModel(monaco, editor, activePath);
+
+    editor.onDidChangeModelContent(() => {
+      const model = editor.getModel();
+      if (!model || !onFileChange) {
+        return;
+      }
+      const path = model.uri.path.replace(/^\//, '');
+      onFileChange(path, model.getValue());
+    });
   };
 
   useEffect(() => {

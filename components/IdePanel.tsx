@@ -6,9 +6,10 @@ import CodeEditor, { type CodeFile } from '@/components/CodeEditor';
 type IdePanelProps = {
   files: CodeFile[];
   height?: number;
+  onFilesChange?: (files: CodeFile[]) => void;
 };
 
-export default function IdePanel({ files, height = 520 }: IdePanelProps) {
+export default function IdePanel({ files, height = 520, onFilesChange }: IdePanelProps) {
   const defaultPath = useMemo(() => files[0]?.path || 'main.ts', [files]);
   const [activePath, setActivePath] = useState(defaultPath);
 
@@ -38,7 +39,20 @@ export default function IdePanel({ files, height = 520 }: IdePanelProps) {
         })}
       </div>
 
-      <CodeEditor files={files} activePath={activePath} height={height} />
+      <CodeEditor
+        files={files}
+        activePath={activePath}
+        height={height}
+        onFileChange={(path, value) => {
+          if (!onFilesChange) {
+            return;
+          }
+          const next = files.map((file) =>
+            file.path === path ? { ...file, value } : file
+          );
+          onFilesChange(next);
+        }}
+      />
     </div>
   );
 }

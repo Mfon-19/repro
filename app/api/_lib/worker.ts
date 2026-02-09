@@ -9,7 +9,14 @@ export type ProcessResult =
   | { status: 'completed'; jobId: string }
   | { status: 'failed'; jobId: string; error: string };
 
-function buildScaffold(title: string | null, jobId: string) {
+type ScaffoldResult = {
+  jobId: string;
+  title: string;
+  tasks: string[];
+  files: { path: string; language: string; value: string }[];
+};
+
+function buildScaffold(title: string | null, jobId: string): ScaffoldResult {
   const safeTitle = title || 'Untitled Paper';
   return {
     jobId,
@@ -33,6 +40,14 @@ function buildScaffold(title: string | null, jobId: string) {
       },
     ],
   };
+}
+
+async function generateScaffoldWithLlm(title: string | null, jobId: string): Promise<ScaffoldResult> {
+  // TODO: Replace this mock with a real LLM call.
+  // - Send the extracted title + (optional) PDF text to your model provider.
+  // - Parse the response into { tasks, files } and return that structure.
+  // - Consider adding retries + a fallback scaffold.
+  return buildScaffold(title, jobId);
 }
 
 async function updateProgress(jobId: string, stage: string, progress: number) {
@@ -68,7 +83,7 @@ export async function processJob(jobId: string): Promise<ProcessResult> {
     const resolvedTitle = extractedTitle || job.paper_title || null;
 
     await updateProgress(jobId, 'generating_scaffold', 75);
-    const resultJson = buildScaffold(resolvedTitle, jobId);
+    const resultJson = await generateScaffoldWithLlm(resolvedTitle, jobId);
 
     const resultBlob = await put(`results/${jobId}/scaffold.json`, JSON.stringify(resultJson, null, 2), {
       access: 'public',
