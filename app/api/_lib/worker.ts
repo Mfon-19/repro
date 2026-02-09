@@ -22,6 +22,120 @@ type GeminiFile = {
   mimeType: string;
 };
 
+function extractJsonObject(input: string) {
+  const start = input.indexOf('{');
+  if (start === -1) {
+    return input.trim();
+  }
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < input.length; i += 1) {
+    const char = input[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (char === '\\') {
+        escape = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+      continue;
+    }
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return input.slice(start, i + 1).trim();
+      }
+    }
+  }
+  return input.slice(start).trim();
+}
+
+function normalizeJsonStringLiterals(input: string) {
+  let out = '';
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < input.length; i += 1) {
+    const char = input[i];
+    if (inString) {
+      if (escape) {
+        out += char;
+        escape = false;
+        continue;
+      }
+      if (char === '\\') {
+        out += char;
+        escape = true;
+        continue;
+      }
+      if (char === '"') {
+        inString = false;
+        out += char;
+        continue;
+      }
+      if (char === '\n') {
+        out += '\\n';
+        continue;
+      }
+      if (char === '\r') {
+        out += '\\r';
+        continue;
+      }
+      if (char === '\t') {
+        out += '\\t';
+        continue;
+      }
+    } else if (char === '"') {
+      inString = true;
+    }
+    out += char;
+  }
+  return out;
+}
+
+function isValidScaffoldResult(value: Partial<ScaffoldResult> | null): value is Partial<ScaffoldResult> {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  if (!Array.isArray(value.tasks) || !Array.isArray(value.files)) {
+    return false;
+  }
+  if (!value.tasks.every((task) => typeof task === 'string' && task.trim().length > 0)) {
+    return false;
+  }
+  const hasReadme = value.files.some(
+    (file) => typeof file?.path === 'string' && file.path.toLowerCase() === 'readme.md'
+  );
+  if (!hasReadme) {
+    return false;
+  }
+  if (
+    !value.files.every(
+      (file) =>
+        file &&
+        typeof file === 'object' &&
+        typeof file.path === 'string' &&
+        typeof file.value === 'string'
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function buildScaffold(title: string | null, jobId: string): ScaffoldResult {
   const safeTitle = title || 'Untitled Paper';
   return {
@@ -170,6 +284,7 @@ Return ONLY strict JSON with this shape:
 }
 Constraints:
 - Output MUST be valid JSON with double quotes and no trailing commas.
+- All newlines inside string values MUST be escaped as \\n.
 - Do NOT wrap in markdown or code fences.
 - You may return any number of tasks (up to 5).
 - You may return any number of files.
@@ -185,6 +300,31 @@ Design guidance:
 Output must be executable in Node 22 with TypeScript via tsx.
 Context title: "${safeTitle}"
 `;
+  const scaffoldSchema = {
+    type: 'object',
+    properties: {
+      tasks: {
+        type: 'array',
+        description: 'Ordered list of implementation tasks (up to 5).',
+        items: { type: 'string' },
+      },
+      files: {
+        type: 'array',
+        description: 'Starter files for the coding challenge.',
+        minItems: 1,
+        items: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'File path, e.g. src/solution.ts.' },
+            language: { type: 'string', description: 'Language identifier for syntax highlighting.' },
+            value: { type: 'string', description: 'File contents.' },
+          },
+          required: ['path', 'value'],
+        },
+      },
+    },
+    required: ['tasks', 'files'],
+  };
 
   try {
     const parts: Array<{ text?: string; file_data?: { mime_type: string; file_uri: string } }> = [
@@ -217,6 +357,8 @@ Context title: "${safeTitle}"
           generationConfig: {
             temperature: 0.2,
             maxOutputTokens: 1500,
+            responseMimeType: 'application/json',
+            responseJsonSchema: scaffoldSchema,
           },
         }),
       }
@@ -251,7 +393,15 @@ Context title: "${safeTitle}"
 
     let parsed: Partial<ScaffoldResult> | null = null;
     try {
-      parsed = JSON.parse(text) as Partial<ScaffoldResult>;
+      const rawJson = extractJsonObject(text);
+      const normalizedJson = normalizeJsonStringLiterals(rawJson);
+      parsed = JSON.parse(normalizedJson) as Partial<ScaffoldResult>;
+      if (!isValidScaffoldResult(parsed)) {
+        if (debugEnabled) {
+          console.warn('Gemini response failed schema validation', parsed);
+        }
+        return buildScaffold(title, jobId);
+      }
     } catch (error) {
       if (debugEnabled) {
         console.warn('Gemini JSON parse failed', error, text);
