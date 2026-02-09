@@ -22,6 +22,11 @@ type GeminiFile = {
   mimeType: string;
 };
 
+type ParsedScaffold = {
+  tasks: string[];
+  files: { path: string; language?: string; value: string }[];
+};
+
 function extractJsonObject(input: string) {
   const start = input.indexOf('{');
   if (start === -1) {
@@ -106,24 +111,25 @@ function normalizeJsonStringLiterals(input: string) {
   return out;
 }
 
-function isValidScaffoldResult(value: Partial<ScaffoldResult> | null): value is Partial<ScaffoldResult> {
+function isValidScaffoldResult(value: unknown): value is ParsedScaffold {
   if (!value || typeof value !== 'object') {
     return false;
   }
-  if (!Array.isArray(value.tasks) || !Array.isArray(value.files)) {
+  const candidate = value as ParsedScaffold;
+  if (!Array.isArray(candidate.tasks) || !Array.isArray(candidate.files)) {
     return false;
   }
-  if (!value.tasks.every((task) => typeof task === 'string' && task.trim().length > 0)) {
+  if (!candidate.tasks.every((task) => typeof task === 'string' && task.trim().length > 0)) {
     return false;
   }
-  const hasReadme = value.files.some(
+  const hasReadme = candidate.files.some(
     (file) => typeof file?.path === 'string' && file.path.toLowerCase() === 'readme.md'
   );
   if (!hasReadme) {
     return false;
   }
   if (
-    !value.files.every(
+    !candidate.files.every(
       (file) =>
         file &&
         typeof file === 'object' &&
@@ -134,6 +140,56 @@ function isValidScaffoldResult(value: Partial<ScaffoldResult> | null): value is 
     return false;
   }
   return true;
+}
+
+async function repairStructuredOutput(
+  apiKey: string,
+  model: string,
+  schema: Record<string, unknown>,
+  rawText: string
+): Promise<string | null> {
+  const trimmed = rawText.length > 12000 ? rawText.slice(0, 12000) : rawText;
+  const prompt = `The previous response is invalid JSON. Return ONLY valid JSON that matches the schema.
+Do not include any commentary. Fix escaping and close any strings/braces if needed.
+Invalid JSON:
+${trimmed}`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0,
+          maxOutputTokens: 1200,
+          responseMimeType: 'application/json',
+          responseJsonSchema: schema,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as {
+    candidates?: Array<{
+      content?: { parts?: Array<{ text?: string }> };
+    }>;
+  };
+
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || null;
 }
 
 function buildScaffold(title: string | null, jobId: string): ScaffoldResult {
@@ -405,6 +461,39 @@ Context title: "${safeTitle}"
     } catch (error) {
       if (debugEnabled) {
         console.warn('Gemini JSON parse failed', error, text);
+      }
+      const repaired = await repairStructuredOutput(apiKey, model, scaffoldSchema, text);
+      if (repaired) {
+        try {
+          const rawJson = extractJsonObject(repaired);
+          const normalizedJson = normalizeJsonStringLiterals(rawJson);
+          parsed = JSON.parse(normalizedJson) as Partial<ScaffoldResult>;
+          if (isValidScaffoldResult(parsed)) {
+            const base = buildScaffold(title, jobId);
+            const tasks = parsed.tasks
+              .filter((task) => typeof task === 'string' && task.trim().length > 0)
+              .slice(0, 5);
+            const files = parsed.files
+              .filter((file) => file && typeof file.path === 'string' && typeof file.value === 'string')
+              .map((file) => ({
+                path: file.path,
+                language: typeof file.language === 'string' ? file.language : 'text',
+                value: file.value,
+              }));
+            if (tasks.length && files.length) {
+              return {
+                jobId,
+                title: base.title,
+                tasks,
+                files,
+              };
+            }
+          }
+        } catch (repairError) {
+          if (debugEnabled) {
+            console.warn('Gemini repaired JSON parse failed', repairError, repaired);
+          }
+        }
       }
       return buildScaffold(title, jobId);
     }
