@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, MouseEvent } from 'react';
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
 import { zipSync, strToU8 } from 'fflate';
 
@@ -166,7 +166,7 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
     };
   }, []);
 
-  const handleDividerDown = (event: MouseEvent<HTMLDivElement>) => {
+  const handleDividerDown = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     draggingRef.current = true;
     setIsDragging(true);
