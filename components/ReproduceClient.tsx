@@ -1,17 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
+import Link from 'next/link';
 import { zipSync, strToU8 } from 'fflate';
 
 import IdePanel from '@/components/IdePanel';
 import PdfViewerClient from '@/components/PdfViewerClient';
 import type { CodeFile } from '@/components/CodeEditor';
-
-const defaultTasks = [
-  'IMPLEMENT CORE ALGORITHM',
-  'DEFINE DATA STRUCTURES',
-  'ADD TEST HARNESS',
-];
 
 const defaultFiles: CodeFile[] = [
   {
@@ -38,7 +34,6 @@ const defaultFiles: CodeFile[] = [
 
 type JobResult = {
   title?: string;
-  tasks?: string[];
   files?: { path: string; language: string; value: string }[];
 };
 
@@ -68,12 +63,14 @@ type ReproduceClientProps = {
 export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   const [job, setJob] = useState<JobStatus | null>(null);
   const [error, setError] = useState('');
-  const [tasks, setTasks] = useState(defaultTasks);
   const [files, setFiles] = useState<CodeFile[]>(defaultFiles);
   const [runBusy, setRunBusy] = useState(false);
   const [submission, setSubmission] = useState<SubmissionStatus | null>(null);
-  const appliedTasksRef = useRef(false);
   const appliedFilesRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const draggingRef = useRef(false);
+  const [splitPct, setSplitPct] = useState(44);
+  const [isDragging, setIsDragging] = useState(false);
 
   const apiBase = useMemo(() => {
     const base = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '');
@@ -87,7 +84,6 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
     let cancelled = false;
     let shouldPoll = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    appliedTasksRef.current = false;
     appliedFilesRef.current = false;
 
     const poll = async () => {
@@ -106,10 +102,6 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
         setJob(data);
         setError('');
 
-        if (data?.result?.tasks?.length && !appliedTasksRef.current) {
-          setTasks(data.result.tasks);
-          appliedTasksRef.current = true;
-        }
         if (data?.result?.files?.length && !appliedFilesRef.current) {
           setFiles(data.result.files);
           appliedFilesRef.current = true;
@@ -144,9 +136,43 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
   }, [apiBase, paperId]);
 
   const title = job?.paper?.title || job?.result?.title || `PAPER ${paperId}`;
-  const statusLabel = job ? `${job.status.toUpperCase()} · ${job.stage.toUpperCase()}` : 'LOADING';
-  const progressLabel = job ? `${job.progress_pct}%` : '--';
   const pdfUrl = job?.paper?.paper_url || '';
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      if (!draggingRef.current || !containerRef.current) {
+        return;
+      }
+      const rect = containerRef.current.getBoundingClientRect();
+      const next = ((event.clientX - rect.left) / rect.width) * 100;
+      const clamped = Math.min(75, Math.max(25, next));
+      setSplitPct(clamped);
+    };
+
+    const handleUp = () => {
+      if (draggingRef.current) {
+        draggingRef.current = false;
+        setIsDragging(false);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, []);
+
+  const handleDividerDown = (event: MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    draggingRef.current = true;
+    setIsDragging(true);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   const handleRunTests = useCallback(async () => {
     if (runBusy) {
@@ -258,13 +284,12 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
       <div className="border-b border-[var(--border)] px-6 py-4">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <div className="text-xs text-[#666] mb-2">REPRODUCE</div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
           </div>
+          <Link href="/home" className="btn-outline text-xs px-4 py-2">
+            HOME
+          </Link>
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className="border border-[var(--border)] px-3 py-1">STATUS: {statusLabel}</span>
-            <span className="border border-[var(--border)] px-3 py-1">PROGRESS: {progressLabel}</span>
-            <button className="btn-outline text-xs px-4 py-2">REQUEST_REVIEW</button>
             <button
               className="btn-solid text-xs px-4 py-2"
               onClick={handleRunTests}
@@ -281,37 +306,37 @@ export default function ReproduceClient({ paperId }: ReproduceClientProps) {
       </div>
 
       <div className="px-6 py-6">
-        <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1.4fr] gap-6">
+        <div
+          ref={containerRef}
+          className="relative grid grid-cols-1 gap-6 xl:gap-0 xl:[grid-template-columns:var(--split-cols)]"
+          style={
+            {
+              '--split-cols': `minmax(280px, ${splitPct}%) 10px minmax(320px, ${100 - splitPct}%)`,
+            } as CSSProperties
+          }
+        >
           <section className="border border-[var(--border)] bg-black/40 p-5">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold">PAPER_VIEW</h2>
-              <span className="text-xs text-[#666]">READ_ONLY</span>
-            </div>
             <div className="mb-6">
               <PdfViewerClient fileUrl={pdfUrl} height={520} />
             </div>
-
-            <div className="mt-6 border border-[var(--border)] p-4">
-              <div className="text-xs text-[var(--accent)] mb-3">TASKS</div>
-              <ul className="space-y-2 text-xs text-[#666]">
-                {tasks.map((task) => (
-                  <li key={task} className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
-                    {task}
-                  </li>
-                ))}
-              </ul>
-            </div>
           </section>
 
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panels"
+            onMouseDown={handleDividerDown}
+            className={[
+              'hidden xl:flex items-center justify-center cursor-col-resize',
+              'bg-[var(--border)]/50 hover:bg-[var(--accent)]/50 transition-colors',
+              isDragging ? 'bg-[var(--accent)]/60' : '',
+            ].join(' ')}
+          >
+            <div className="h-16 w-[2px] bg-[var(--border)]/80" />
+          </div>
+
           <section className="border border-[var(--border)] bg-black/30 p-5">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-              <h2 className="text-lg font-bold">IMPLEMENTATION_IDE</h2>
-              <div className="flex items-center gap-3 text-xs text-[#666]">
-                <span>BRANCH: MAIN</span>
-                <span>RUNS: 02</span>
-              </div>
-            </div>
+            <div className="mb-4" />
 
             <IdePanel files={files} height={520} onFilesChange={setFiles} />
 

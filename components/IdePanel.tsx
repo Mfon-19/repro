@@ -27,8 +27,10 @@ export default function IdePanel({ files, height = 520, onFilesChange }: IdePane
           return (
             <button
               key={file.path}
-              className={`border border-[var(--border)] px-3 py-1 ${
-                isActive ? 'bg-[var(--foreground)] text-[var(--background)]' : 'bg-black/50'
+              className={`border border-[var(--border)] px-3 py-1 cursor-pointer transition-colors ${
+                isActive
+                  ? 'bg-[var(--foreground)] text-[var(--background)]'
+                  : 'bg-black/50 hover:bg-[var(--border)]/40 hover:text-[var(--accent)]'
               }`}
               onClick={() => setActivePath(file.path)}
               type="button"

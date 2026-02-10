@@ -14,9 +14,6 @@ const MAX_UPLOAD_SIZE = 25 * 1024 * 1024;
 
 export async function handleSubmissionUpload(request: NextRequest) {
   const session = getSession(request);
-  if (!session?.userId) {
-    return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
-  }
 
   const formData = await request.formData();
   const submission = formData.get('submission');
@@ -35,8 +32,13 @@ export async function handleSubmissionUpload(request: NextRequest) {
   if (!job) {
     return NextResponse.json({ error: 'job_not_found', message: 'job not found' }, { status: 404 });
   }
-  if (!job.user_id || job.user_id !== session.userId) {
-    return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+  if (job.user_id) {
+    if (!session?.userId) {
+      return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
+    }
+    if (job.user_id !== session.userId) {
+      return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+    }
   }
 
   if (submission.size === 0) {
@@ -59,7 +61,7 @@ export async function handleSubmissionUpload(request: NextRequest) {
   const profile = resolveProfile(language);
   const record = await createSubmission({
     id: submissionId,
-    userId: session.userId,
+    userId: session?.userId || null,
     jobId,
     language: profile.language,
     runtime: profile.runtime,

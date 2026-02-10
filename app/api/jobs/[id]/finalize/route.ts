@@ -12,21 +12,24 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = getSession(request);
-  if (!session?.userId) {
-    return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
-  }
-
   const { id } = await params;
   const existing = await fetchJob(id);
   if (!existing) {
     return NextResponse.json({ error: 'not_found', message: 'job not found' }, { status: 404 });
   }
-  if (!existing.user_id || existing.user_id !== session.userId) {
-    return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+  let userId: string | null = null;
+  if (existing.user_id) {
+    const session = getSession(request);
+    if (!session?.userId) {
+      return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
+    }
+    if (existing.user_id !== session.userId) {
+      return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+    }
+    userId = session.userId;
   }
 
-  const job = await markJobQueued(id, session.userId);
+  const job = await markJobQueued(id, userId);
   if (!job) {
     return NextResponse.json({ error: 'not_found', message: 'job not found or not queueable' }, { status: 404 });
   }

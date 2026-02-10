@@ -15,13 +15,15 @@ export async function GET(
     return NextResponse.json({ error: 'not_found', message: 'job not found' }, { status: 404 });
   }
 
-  const session = getSession(request);
-  if (!session?.userId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
+  if (job.user_id) {
+    const session = getSession(request);
+    if (!session?.userId) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
 
-  if (!job.user_id || job.user_id !== session.userId) {
-    return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+    if (job.user_id !== session.userId) {
+      return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+    }
   }
 
   if (!job.paper_blob_url) {

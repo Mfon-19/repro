@@ -51,10 +51,10 @@ export default function Hero() {
                 </div>
                 <div>-- VIM --</div>
               </div>
-              <div className="p-6 font-mono text-sm leading-6 overflow-hidden">
+              <div className="terminal-code normal-case p-6 font-mono text-sm leading-6 overflow-hidden">
                 <div className="flex">
                   <span className="w-8 text-[#444] select-none text-right mr-4">1</span>
-                  <span className="syntax-keyword">class</span> <span className="syntax-function">SelfAttention</span>(nn.Module):
+                  <span className="syntax-keyword">class </span><span className="syntax-function">SelfAttention</span>(nn.Module):
                 </div>
                 <div className="flex">
                   <span className="w-8 text-[#444] select-none text-right mr-4">2</span>

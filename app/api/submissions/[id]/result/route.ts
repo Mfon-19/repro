@@ -9,19 +9,20 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = getSession(request);
-  if (!session?.userId) {
-    return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
-  }
-
   const { id } = await params;
   const submission = await fetchSubmission(id);
   if (!submission) {
     return NextResponse.json({ error: 'not_found', message: 'submission not found' }, { status: 404 });
   }
 
-  if (!submission.user_id || submission.user_id !== session.userId) {
-    return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+  if (submission.user_id) {
+    const session = getSession(request);
+    if (!session?.userId) {
+      return NextResponse.json({ error: 'unauthorized', message: 'login required' }, { status: 401 });
+    }
+    if (submission.user_id !== session.userId) {
+      return NextResponse.json({ error: 'forbidden', message: 'not allowed' }, { status: 403 });
+    }
   }
 
   if (submission.result_json) {

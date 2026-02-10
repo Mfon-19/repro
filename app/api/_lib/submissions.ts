@@ -25,7 +25,7 @@ export type SubmissionRow = {
 };
 
 export async function createSubmission(input: {
-  userId: string;
+  userId?: string | null;
   jobId: string;
   language: string;
   runtime: string;
@@ -38,7 +38,7 @@ export async function createSubmission(input: {
     insert into submissions
       (id, job_id, user_id, language, runtime, status, stage, progress_pct, submission_filename, submission_blob_url)
     values
-      (${submissionId}, ${input.jobId}, ${input.userId}, ${input.language}, ${input.runtime}, 'queued', 'receive_upload', 5, ${input.filename}, ${input.blobUrl})
+      (${submissionId}, ${input.jobId}, ${input.userId || null}, ${input.language}, ${input.runtime}, 'queued', 'receive_upload', 5, ${input.filename}, ${input.blobUrl})
     returning *
   `;
   return result.rows[0];

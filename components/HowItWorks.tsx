@@ -1,21 +1,21 @@
 const steps = [
   {
     step: '01',
-    label: 'SELECT_TARGET',
-    desc: 'CHOOSE A PAPER FROM THE ARCHIVE.',
-    details: 'FILTER BY CITATIONS, YEAR, OR DIFFICULTY.'
+    label: 'UPLOAD_PAPER',
+    desc: 'UPLOAD A PAPER TO START.',
+    details: 'WE GENERATE A CODE SCAFFOLD FROM THE PDF.'
   },
   {
     step: '02',
-    label: 'INIT_ENV',
-    desc: 'SET UP YOUR IMPLEMENTATION ENVIRONMENT.',
-    details: 'INSTALL DEPENDENCIES. CLONE TEMPLATE.'
+    label: 'IMPLEMENT_SOLUTION',
+    desc: 'FILL IN THE TODOs.',
+    details: 'USE THE PAPER AS YOUR SPEC.'
   },
   {
     step: '03',
-    label: 'EXECUTE',
-    desc: 'IMPLEMENT ALGORITHMS STEP-BY-STEP.',
-    details: 'PASS UNIT TESTS. OPTIMIZE FOR PERFORMANCE.'
+    label: 'SUBMIT',
+    desc: 'RUN TESTS AND SUBMIT.',
+    details: 'ITERATE UNTIL IT PASSES.'
   },
 ];
 

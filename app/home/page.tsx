@@ -17,28 +17,28 @@ const userPapers = [
 
 const communityPapers = [
   {
-    id: 'PPR_132',
+    id: 'PPR_141',
     title: 'MAPREDUCE',
     category: 'DISTRIBUTED_SYSTEMS',
-    contributors: 42,
+    contributors: 58,
   },
   {
-    id: 'PPR_127',
-    title: 'SPARK_RDD',
-    category: 'DATA_SYSTEMS',
-    contributors: 31,
+    id: 'PPR_137',
+    title: 'BIGTABLE',
+    category: 'DATABASES',
+    contributors: 44,
   },
   {
-    id: 'PPR_119',
-    title: 'SEMAPHORE_COMPILER',
+    id: 'PPR_129',
+    title: 'DYNAMO',
+    category: 'DISTRIBUTED_SYSTEMS',
+    contributors: 37,
+  },
+  {
+    id: 'PPR_118',
+    title: 'LLVM',
     category: 'COMPILERS',
-    contributors: 18,
-  },
-  {
-    id: 'PPR_104',
-    title: 'VECTOR_DATABASES',
-    category: 'ML_SYSTEMS',
-    contributors: 27,
+    contributors: 26,
   },
 ];
 
